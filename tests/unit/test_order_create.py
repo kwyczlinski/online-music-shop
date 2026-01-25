@@ -1,5 +1,6 @@
 from src.order import Order
 import pytest
+from datetime import datetime, timezone, timedelta
 
 class TestOrder:
 
@@ -47,6 +48,8 @@ class TestOrder:
         (4, "pending", "collected"),
         (1, "cancelled", "cancelled"),
         (4, "cancelled", "cancelled"),
+        (1, "returning", "returned"),
+        (3, "returned", "returned"),
     ], ids=[
         "change to ready",
         "change to shipping",
@@ -54,6 +57,8 @@ class TestOrder:
         "can not go past collected",
         "order is cancelled",
         "many chages to cancelled",
+        "change from returning to returned",
+        "many chages to retured",
     ])
     def test_status_change(self, order, advance_times, starting_status, expected_status):
         order.status = starting_status
@@ -69,11 +74,47 @@ class TestOrder:
         ("shipping", "shipping", False),
         ("collected", "collected", False),
         ("cancelled", "cancelled", False),
+        ("returning", "returning", False),
+        ("returned", "returned", False),
+    ], ids=[
+        "cancelled when pending",
+        "cancelled when ready",
+        "can not cancel while in shipping",
+        "can not cancel when collected",
+        "can not cancel if cancelled",
+        "can not cancel while returning",
+        "can not cancel when returned",
     ])
     def test_order_cancellation(self, order, starting_status, expected_status, succeeded):
         order.status = starting_status
 
         success = order.cancell()
+
+        assert order.status == expected_status
+        assert success == succeeded
+
+    @pytest.mark.parametrize("starting_status, collect_time, expected_status, succeeded",  [
+        ("collected", datetime.now(timezone.utc), "returning", True),
+        ("collected", datetime.now(timezone.utc) - timedelta(days=1), "returning", True),
+        ("collected", datetime.now(timezone.utc) - timedelta(days=14), "collected", False),
+        ("collected", datetime.now(timezone.utc) - timedelta(days=31), "collected", False),
+        ("pending", None, "pending", False),
+        ("ready", None, "ready", False),
+        ("shipping", None, "shipping", False),
+    ], ids=[
+        "order just collected",
+        "order collected day ago",
+        "order collected two weeks ago",
+        "order collected month ago",
+        "order is pending",
+        "order is ready",
+        "order is shipping",
+    ])
+    def test_order_return(self, order, starting_status, collect_time, expected_status, succeeded):
+        order.status = starting_status
+        order.collected_at = collect_time
+
+        success = order.file_return()
 
         assert order.status == expected_status
         assert success == succeeded
