@@ -23,6 +23,10 @@ class TestOrderCreation:
 
         assert order.email == "Invalid"
 
+    def test_at_starts_email(self):
+        order = Order("Happier Than Ever", "@example.com")
+
+        assert order.email == "Invalid"
 
     def test_no_dot_after_at_in_email(self):
         order = Order("Happier Than Ever", "test@example")
