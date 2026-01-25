@@ -1,5 +1,6 @@
 from src.order import Order
 import pytest
+from datetime import datetime, timezone, timedelta
 
 class TestOrder:
 
@@ -69,11 +70,37 @@ class TestOrder:
         ("shipping", "shipping", False),
         ("collected", "collected", False),
         ("cancelled", "cancelled", False),
+    ], ids=[
+        "cancelled when pending",
+        "cancelled when ready",
+        "can not cancel while in shipping",
+        "can not cancel when collected",
+        "can not cancel if cancelled",
     ])
     def test_order_cancellation(self, order, starting_status, expected_status, succeeded):
         order.status = starting_status
 
         success = order.cancell()
+
+        assert order.status == expected_status
+        assert success == succeeded
+
+    @pytest.mark.parametrize("collect_time, expected_status, succeeded",  [
+        (datetime.now(timezone.utc), "returning", True),
+        (datetime.now(timezone.utc) - timedelta(days=1), "returning", True),
+        (datetime.now(timezone.utc) - timedelta(days=14), "collected", False),
+        (datetime.now(timezone.utc) - timedelta(days=31), "collected", False),
+    ], ids=[
+        "order just collected",
+        "order collected day ago",
+        "order collected two weeks ago",
+        "order collected month ago",
+    ])
+    def test_order_return(self, order, collect_time, expected_status, succeeded):
+        order.status = "collected"
+        order.collected_at = collect_time
+
+        success = order.file_return()
 
         assert order.status == expected_status
         assert success == succeeded
