@@ -1,5 +1,6 @@
 import pytest
 from datetime import datetime, timezone, timedelta
+from src.digital_order import DigitalOrder
 
 class TestDigitalOrder:
 
