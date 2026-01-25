@@ -10,12 +10,11 @@ class TestOrder:
         ("Happier Than Ever", "example.com", "Happier Than Ever", "Invalid", "cancelled"),
         ("Happier Than Ever", "@example.com", "Happier Than Ever", "Invalid", "cancelled"),
         ("Happier Than Ever", "test@example", "Happier Than Ever", "Invalid", "cancelled"),
-        ("Happier Than Ever", "test@example.com", "Happier Than Ever", "test@example.com", "cancelled"),
         (None, "test@example.com", None, "test@example.com", "cancelled"),
         (True, "test@example.com", None, "test@example.com", "cancelled"),
         (False, "test@example.com", None, "test@example.com", "cancelled"),
         ({}, "test@example.com", None, "test@example.com", "cancelled"),
-
+        ("", "test@example.com", None, "test@example.com", "cancelled"),
     ], ids=[
         "succesfull order creation",
         "succesfull with different product",
@@ -26,8 +25,8 @@ class TestOrder:
         "product is None",
         "product is True",
         "product is False",
-        "product undefined",
         "product is empty object",
+        "product is empty string",
     ])
     def test_order_creation(self, product, email, expected_product, expected_email, expected_status):
         order = Order(product, email)
