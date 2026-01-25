@@ -3,6 +3,11 @@ import pytest
 
 class TestOrder:
 
+    @pytest.fixture
+    def order(self):
+        order = Order("Happier Than Ever", "test@example.com")
+        return order
+
     @pytest.mark.parametrize("product, email, expected_product, expected_email, expected_status", [
         ("Happier Than Ever", "test@example.com", "Happier Than Ever", "test@example.com", "pending"),
         ("Narrated For You", "test@example.com", "Narrated For You", "test@example.com", "pending"),
@@ -50,11 +55,25 @@ class TestOrder:
         "order is cancelled",
         "many chages to cancelled",
     ])
-    def test_status_change(self, advance_times, starting_status, expected_status):
-        order = Order("Happier Than Ever", "test@example.com")
+    def test_status_change(self, order, advance_times, starting_status, expected_status):
         order.status = starting_status
 
         for i in range(advance_times):
             order.change_status()
         
         assert order.status == expected_status
+
+    @pytest.mark.parametrize("starting_status, expected_status, succeeded", [
+        ("pending", "cancelled", True),
+        ("ready", "cancelled", True),
+        ("shipping", "shipping", False),
+        ("collected", "collected", False),
+        ("cancelled", "cancelled", False),
+    ])
+    def test_order_cancellation(self, order, starting_status, expected_status, succeeded):
+        order.status = starting_status
+
+        success = order.cancell()
+
+        assert order.status == expected_status
+        assert success == succeeded
