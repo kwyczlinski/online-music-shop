@@ -18,7 +18,7 @@ class Order:
         self.status = status_changes.get(self.status, "cancelled")
 
     def cancell(self) -> bool:
-        if self.status == "pending" or self.status == "ready":
+        if ["pending", "ready"].count(self.status) > 0:
             self.status = "cancelled"
             return True
         return False
