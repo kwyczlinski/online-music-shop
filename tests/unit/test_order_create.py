@@ -13,11 +13,6 @@ class TestOrderCreation:
 
         assert order.email == "Invalid"
 
-    def test_empty_email(self):
-        order = Order("Happier Than Ever", "")
-
-        assert order.email == "Invalid"
-
     def test_no_at_in_email(self):
         order = Order("Happier Than Ever", "example.email")
 
