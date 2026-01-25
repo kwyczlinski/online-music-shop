@@ -35,3 +35,22 @@ class TestOrder:
         assert order.product == expected_product
         assert order.status == "pending"
         assert order.email == expected_email
+
+    @pytest.mark.parametrize("advance_times, expected_status", [
+        (1, "ready"),
+        (2, "shipping"),
+        (3, "collected"),
+        (4, "collected"),
+    ], ids=[
+        "change to ready",
+        "change to shipping",
+        "change to collected",
+        "can not go past collected",
+    ])
+    def test_status_change(self, advance_times, expected_status):
+        order = Order("Happier Than Ever", "test@example.com")
+
+        for i in range(advance_times):
+            order.change_status()
+        
+        assert order.status == expected_status
