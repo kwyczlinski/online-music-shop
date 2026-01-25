@@ -1,5 +1,7 @@
 import re
 
+status_changes = {"pending" : "ready", "ready" : "shipping", "shipping" : "collected", "collected" : "collected"}
+
 class Order:
     def __init__(self, product, email):
         self.product = product if isinstance(product, str) else None
@@ -7,9 +9,4 @@ class Order:
         self.email = "Invalid" if not re.match(r"[^@]+@[^@]+\.[^@]+", email)  else email
 
     def change_status(self):
-        if self.status == "pending":
-            self.status = "ready"
-        elif self.status == "ready":
-            self.status = "shipping"
-        elif self.status == "shipping":
-            self.status = "collected"
+        self.status = status_changes[self.status]
