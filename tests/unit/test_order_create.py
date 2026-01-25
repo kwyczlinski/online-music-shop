@@ -85,19 +85,25 @@ class TestOrder:
         assert order.status == expected_status
         assert success == succeeded
 
-    @pytest.mark.parametrize("collect_time, expected_status, succeeded",  [
-        (datetime.now(timezone.utc), "returning", True),
-        (datetime.now(timezone.utc) - timedelta(days=1), "returning", True),
-        (datetime.now(timezone.utc) - timedelta(days=14), "collected", False),
-        (datetime.now(timezone.utc) - timedelta(days=31), "collected", False),
+    @pytest.mark.parametrize("starting_status, collect_time, expected_status, succeeded",  [
+        ("collected", datetime.now(timezone.utc), "returning", True),
+        ("collected", datetime.now(timezone.utc) - timedelta(days=1), "returning", True),
+        ("collected", datetime.now(timezone.utc) - timedelta(days=14), "collected", False),
+        ("collected", datetime.now(timezone.utc) - timedelta(days=31), "collected", False),
+        ("pending", None, "pending", False),
+        ("ready", None, "ready", False),
+        ("shipping", None, "shipping", False),
     ], ids=[
         "order just collected",
         "order collected day ago",
         "order collected two weeks ago",
         "order collected month ago",
+        "order is pending",
+        "order is ready",
+        "order is shipping",
     ])
-    def test_order_return(self, order, collect_time, expected_status, succeeded):
-        order.status = "collected"
+    def test_order_return(self, order, starting_status, collect_time, expected_status, succeeded):
+        order.status = starting_status
         order.collected_at = collect_time
 
         success = order.file_return()
