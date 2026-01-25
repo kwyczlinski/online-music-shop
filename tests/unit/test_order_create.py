@@ -48,6 +48,8 @@ class TestOrder:
         (4, "pending", "collected"),
         (1, "cancelled", "cancelled"),
         (4, "cancelled", "cancelled"),
+        (1, "returning", "returned"),
+        (3, "returned", "returned"),
     ], ids=[
         "change to ready",
         "change to shipping",
@@ -55,6 +57,8 @@ class TestOrder:
         "can not go past collected",
         "order is cancelled",
         "many chages to cancelled",
+        "change from returning to returned",
+        "many chages to retured",
     ])
     def test_status_change(self, order, advance_times, starting_status, expected_status):
         order.status = starting_status
@@ -70,12 +74,16 @@ class TestOrder:
         ("shipping", "shipping", False),
         ("collected", "collected", False),
         ("cancelled", "cancelled", False),
+        ("returning", "returning", False),
+        ("returned", "returned", False),
     ], ids=[
         "cancelled when pending",
         "cancelled when ready",
         "can not cancel while in shipping",
         "can not cancel when collected",
         "can not cancel if cancelled",
+        "can not cancel while returning",
+        "can not cancel when returned",
     ])
     def test_order_cancellation(self, order, starting_status, expected_status, succeeded):
         order.status = starting_status
