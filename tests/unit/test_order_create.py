@@ -58,3 +58,19 @@ class TestOrder:
             order.change_status()
         
         assert order.status == expected_status
+
+    @pytest.mark.parametrize("starting_status, expected_status, succeeded", [
+        ("pending", "cancelled", True),
+        ("ready", "cancelled", True),
+        ("shipping", "shipping", False),
+        ("collected", "collected", False),
+        ("cancelled", "cancelled", False),
+    ])
+    def test_order_cancellation(self, starting_status, expected_status, succeeded):
+        order = Order("Happier Than Ever", "test@example.com")
+        order.status = starting_status
+
+        success = order.cancell()
+
+        assert order.status == expected_status
+        assert success == succeeded
