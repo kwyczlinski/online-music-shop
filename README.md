@@ -20,6 +20,10 @@ pip install -r
 
 ## How to execute tests
 
+Only unit: \
+python3 -m pytest -m "not integration"
+
+Run all: \
 python3 -m pytest
 
 ## How to check coverage
