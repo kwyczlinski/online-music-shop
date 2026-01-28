@@ -15,7 +15,7 @@ class PhysicalOrder(Order):
     def __init__(self, product, email: str, address: dict[str, str | None]):
         super().__init__(product, email)
         self.address = address
-        self.status = "cancelled" if self.verify_address(address) and self.address_exists(address) else "pending"
+        self.status = "pending" if self.verify_address(address) and self.address_exists(address) else "cancelled"
 
     def verify_address(self, address: dict[str, str | None]):
         flat_number: str | None = address.get("flatnumber", None)
@@ -33,7 +33,6 @@ class PhysicalOrder(Order):
     def address_exists(self, address: dict[str, str | None]):
         address_parts = []
 
-        
         for key in ADDRESS_SEARCH_ORDER:
             value = address.get(key)
             if value and isinstance(value, str) and value.strip():
