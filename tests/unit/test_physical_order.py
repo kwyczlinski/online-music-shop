@@ -90,3 +90,29 @@ class TestPhysicalOrder:
         order = PhysicalOrder(product, email, valid_address)
 
         assert order.status == expected_status
+
+    @pytest.mark.parametrize("address, expected_status", [
+        ({
+            "housenumber": "57",
+            "flatnumber": None,
+            "street": "Wita Stwosza",
+            "postcode": "80-308",
+            "city": "Gdansk",
+            "state": "Pomerian",
+            "country": "Poland",
+        }, "pending"),
+        ({
+            "housenumber": "10a",
+            "flatnumber": "7",
+            "street": "Rakietowa",
+            "postcode": "11-111",
+            "city": "Mars",
+            "state": "Mazowieckie",
+            "country": "Poland",
+        }, "cancelled")
+    ])
+    def test_address_exists(self, product, email, address, expected_status):
+
+        order = PhysicalOrder(product, email, address)
+
+        assert order.status == expected_status
