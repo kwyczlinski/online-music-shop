@@ -47,8 +47,7 @@ class PhysicalOrder(Order):
 
         try:
             resp = requests.get(url, headers=headers, timeout=10)
-            if resp.status_code != 200:
-                return True
+            if resp.status_code != 200: return True
             
             data = resp.json()
 
@@ -65,5 +64,4 @@ class PhysicalOrder(Order):
             
             return False
 
-        except (requests.exceptions.RequestException, ValueError, KeyError):
-            return True
+        except (requests.exceptions.RequestException, ValueError, KeyError): return True

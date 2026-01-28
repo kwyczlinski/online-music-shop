@@ -9,9 +9,9 @@ class TestPhysicalOrder:
             "flatnumber": "2.16",
             "street": "Wita Stwosza",
             "postcode": "80-308",
-            "city": "Gdansk",
-            "state": "Pomerian",
-            "country": "Poland",
+            "city": "Gdańsk",
+            "state": "Pomorskie",
+            "country": "Polska",
         }
         return valid_address
     
@@ -22,6 +22,10 @@ class TestPhysicalOrder:
     @pytest.fixture()
     def email(self):
         return "test@example.com"
+    
+    @pytest.fixture()
+    def mock_api(self, mocker):
+        return mocker.patch("src.physical_order.PhysicalOrder.address_exists", return_value=True)
 
     @pytest.mark.parametrize("changes, expected_status", [
         ({}, "pending"),
@@ -59,7 +63,7 @@ class TestPhysicalOrder:
         "bad type country",
         "bad type whitespaces",      
     ])
-    def test_order_creation_address(self, product, email, valid_address, changes, expected_status):
+    def test_order_creation_address(self, mock_api, product, email, valid_address, changes, expected_status):
         test_address = {**valid_address, **changes}
         order = PhysicalOrder(product, email, test_address)
 
@@ -84,35 +88,47 @@ class TestPhysicalOrder:
         "missing state",
         "missing country"
     ])
-    def test_missing_address_param(self, product, email, valid_address, delete, expected_status):
+    def test_missing_address_param(self, mock_api, product, email, valid_address, delete, expected_status):
         valid_address.pop(delete)
 
         order = PhysicalOrder(product, email, valid_address)
 
         assert order.status == expected_status
 
-    @pytest.mark.parametrize("address, expected_status", [
-        ({
+    @pytest.mark.parametrize("api_resp, address, expected_status", [
+        ({"features": [{"properties": {"rank": {"confidence": 0.9}}}]},
+        {
             "housenumber": "57",
             "flatnumber": None,
             "street": "Wita Stwosza",
             "postcode": "80-308",
-            "city": "Gdansk",
-            "state": "Pomerian",
-            "country": "Poland",
+            "city": "Gdańsk",
+            "state": "Pomorskie",
+            "country": "Polska",
         }, "pending"),
-        ({
+        ({"features": [{"properties": {"rank": {"confidence": 0.25}}}]},
+        {
             "housenumber": "10a",
             "flatnumber": "7",
             "street": "Rakietowa",
             "postcode": "11-111",
             "city": "Mars",
             "state": "Mazowieckie",
-            "country": "Poland",
-        }, "cancelled")
+            "country": "Polska",
+        }, "cancelled"),
+    ], ids=[
+        "correct address",
+        "incorrect address",
     ])
-    def test_address_exists(self, product, email, address, expected_status):
+    def test_address_exists(self, mocker, product, email, api_resp, address, expected_status):
+        
+        mock_get = mocker.patch("src.physical_order.requests.get")
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = api_resp
 
         order = PhysicalOrder(product, email, address)
 
         assert order.status == expected_status
+
+        args, kwargs = mock_get.call_args
+        assert "api.geoapify.com" in args[0]
