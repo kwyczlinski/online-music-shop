@@ -87,3 +87,34 @@ class OrderRegistry:
                 raise ReturnPolicyViolation("Only collected orders are eligible for return.")
         
         return can_return
+    
+    def update_email(self, order_id: str, new_email: str) -> bool:
+        list_id = next((id for id in range(len(self.active_registry)) if self.active_registry[id].id == order_id), None)
+        if list_id == None:
+            return False
+        
+        order = self.active_registry[list_id]
+    
+        isValid = order.verify_email(new_email)
+
+        if isValid:
+            order.email = new_email
+            return True
+        return False
+    
+    def update_address(self, order_id: str, new_address: dict[str, str | None]) -> bool:
+        list_id = next((id for id in range(len(self.active_registry)) if self.active_registry[id].id == order_id), None)
+        if list_id == None:
+            return False
+        
+        order = self.active_registry[list_id]
+
+        if not isinstance(order, PhysicalOrder) or order.status in ["shipping", "collected", "returning", "returned"]:
+            return False
+
+        isValid = order.verify_address(new_address) and order.address_exists(new_address)
+
+        if isValid:
+            order.address = new_address
+            return True
+        return False

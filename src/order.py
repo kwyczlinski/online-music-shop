@@ -17,7 +17,7 @@ class Order:
         return True if isinstance(product, str) and len(product) > 0 else False
 
     def verify_email(self, email) -> bool:
-        return True if re.match(r"[^@]+@[^@]+\.[^@]+", email) else False
+        return True if isinstance(email, str) and re.match(r"[^@]+@[^@]+\.[^@]+", email) else False
 
     def change_status(self) -> None:
         if self.status == "shipping":

@@ -226,18 +226,10 @@ class TestOrderRegistry:
         assert order in registry.order_history
         assert registry.get_active_orders_count() == 0
 
-    def test_can_not_change_digital_order_address(self, registry: OrderRegistry, order: DigitalOrder):
+    def test_can_not_change_digital_order_address(self, registry: OrderRegistry, order: DigitalOrder, valid_address):
         registry.active_registry.append(order)
 
-        result = registry.update_address(order.id,{
-            "housenumber": "57",
-            "flatnumber": None,
-            "street": "Wita Stwosza",
-            "postcode": "80-308",
-            "city": "Gdańsk",
-            "state": "Pomorskie",
-            "country": "Polska",
-        })
+        result = registry.update_address(order.id, valid_address)
 
         assert result == False
 
