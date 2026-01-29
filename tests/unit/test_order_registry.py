@@ -30,6 +30,20 @@ class TestOrderRegistry:
         assert registry.active_registry == []
         assert registry.order_history == []
 
+    @pytest.fixture()
+    def mock_api(self, mocker):
+        return mocker.patch("src.physical_order.PhysicalOrder.address_exists", return_value=True)
+
+    @pytest.fixture
+    def valid_address(self):
+        valid_address = {"housenumber": "12","flatnumber": "3","street": "Długa","postcode": "80-001","city": "Gdańsk","state": "Pomorskie","country": "Polska"}
+        return valid_address
+
+    @pytest.fixture
+    def invalid_address(self):
+        invalid_address =  {"housenumber": None,"city": ""}
+        return invalid_address
+
     @pytest.mark.parametrize("valid_orders, invalid_orders, expected_active_count, expected_history_count", [
         ([], [], 0, 0),
         ([DigitalOrder("Happier Than Ever", "test@example.com"), DigitalOrder("Narrated For You", "test@test.com")], [], 2, 0),
@@ -211,3 +225,81 @@ class TestOrderRegistry:
         assert "Digital orders can not be returned." in str(excinfo.value)
         assert order in registry.order_history
         assert registry.get_active_orders_count() == 0
+
+    def test_can_not_change_digital_order_address(self, registry: OrderRegistry, order: DigitalOrder):
+        registry.active_registry.append(order)
+
+        result = registry.update_address(order.id,{
+            "housenumber": "57",
+            "flatnumber": None,
+            "street": "Wita Stwosza",
+            "postcode": "80-308",
+            "city": "Gdańsk",
+            "state": "Pomorskie",
+            "country": "Polska",
+        })
+
+        assert result == False
+
+    @pytest.mark.parametrize("new_email, expected_result", [
+        ("new.test@example.com", True),
+        ("test.test@test.co.uk", True),
+        ("example", False),
+        ("@example.com", False),
+        ("example@.com", False),
+        ("", False),
+        ("    ", False),
+        (None, False),
+    ], ids=[
+        "valid email",
+        "advanced valid email",
+        "missing at",
+        "starts with at",
+        "no dot",
+        "empty string",
+        "white spaces",
+        "None value",
+    ])
+    def test_email_change(self, registry: OrderRegistry, order: DigitalOrder, new_email: str, expected_result: bool):
+        registry.active_registry.append(order)
+        original_email = order.email
+        
+        result = registry.update_email(order.id, new_email)
+        
+        assert result == expected_result
+        if expected_result:
+            assert order.email == new_email
+        else:
+            assert order.email == original_email
+
+    @pytest.mark.parametrize("starting_status, use_valid_address, expected_result", [
+        ("pending", True, True),
+        ("ready", True, True),
+        ("shipping", True, False),
+        ("collected", True, False),
+        ("returning", True, False),
+        ("returned", True, False),
+        ("pending", False, False),
+        ("ready", False, False),
+    ], ids=[
+        "update when pending",
+        "update when ready",
+        "can not update when shipping",
+        "can not update when collected",
+        "can not update when returning",
+        "can not update when returned",
+        "fail invalid address when pending",
+        "fail invalid address when ready"
+    ])
+    def test_address_change(self, registry: OrderRegistry, physical_order: PhysicalOrder, mock_api, valid_address, invalid_address, starting_status, use_valid_address, expected_result):
+        physical_order.status = starting_status
+        registry.active_registry.append(physical_order)
+        target_address = valid_address if use_valid_address else invalid_address
+        
+        result = registry.update_address(physical_order.id, target_address)
+        
+        assert result == expected_result
+        if expected_result:
+            assert physical_order.address == target_address
+        else:
+            assert physical_order.address != target_address
