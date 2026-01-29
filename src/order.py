@@ -7,10 +7,10 @@ status_changes = {"pending" : "ready", "ready" : "shipping", "shipping" : "colle
 class Order:
     def __init__(self, product, email):
         self.product = product if self.verify_product(product) else None
-        self.email = email if self.verify_email(email)  else "Invalid"
-        self.status = "pending" if self.product and self.verify_email(email) else "cancelled"
+        self.email: str = email if self.verify_email(email)  else "Invalid"
+        self.status: str = "pending" if self.product and self.verify_email(email) else "cancelled"
         self.collected_at = None
-        self.id = uuid.uuid4()
+        self.id: str = str(uuid.uuid4())
 
 
     def verify_product(self, product) -> bool:

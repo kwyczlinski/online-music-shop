@@ -1,0 +1,189 @@
+from src.digital_order import DigitalOrder
+from src.order_registry import OrderRegistry
+import pytest
+
+class TestOrderRegistry:
+    @pytest.fixture()
+    def registry(self):
+        registry: OrderRegistry = OrderRegistry()
+        return registry
+    
+    @pytest.fixture()
+    def order(self):
+        order = DigitalOrder("Happier Than Ever", "test@example.com")
+        return order
+    
+    @pytest.fixture()
+    def orders(self):
+        orders = [DigitalOrder("Happier Than Ever", "test@example.com"), DigitalOrder("Narrated For You", "test@test.com"), DigitalOrder("Those Two Windows", "test@example.com"), DigitalOrder("Irenka", "sanah@sanah.com")]
+        return orders
+
+    def test_registry_creation(self, registry: OrderRegistry):
+        assert registry.active_registry == []
+        assert registry.order_history == []
+
+    @pytest.mark.parametrize("valid_orders, invalid_orders, expected_active_count, expected_history_count", [
+        ([], [], 0, 0),
+        ([DigitalOrder("Happier Than Ever", "test@example.com"), DigitalOrder("Narrated For You", "test@test.com")], [], 2, 0),
+        ([], [DigitalOrder("Happier Than Ever", "test@.com")], 0, 1),
+        ([DigitalOrder("Narrated For You", "test@test.com"), DigitalOrder("Those Two Windows", "test@example.com"), DigitalOrder("Irenka", "sanah@sanah.com")], [DigitalOrder("Happier Than Ever", "test@.com"), DigitalOrder("Narrated For You", "@test.com")], 3, 2),
+        ([DigitalOrder("Happier Than Ever", "test@example.com")], [DigitalOrder("Happier Than Ever", "test@.com")], 1, 1),
+        ([[], {}], [], 0, 0),
+        ([True], [False], 0, 0),
+        (["music"], [], 0, 0),
+        ([], [None], 0, 0),
+    ], ids=[
+        "no orders",
+        "two valid orders",
+        "one invalid order",
+        "mixed orders",
+        "one of each",
+        "bad types list and dict",
+        "bad types bool",
+        "bad types str",
+        "bad types None",
+    ])
+    def test_add_orders(self, registry: OrderRegistry, valid_orders, invalid_orders, expected_active_count, expected_history_count):
+        for order in valid_orders:
+            registry.add_order(order)
+        
+        for order in invalid_orders:
+            registry.add_order(order)
+
+        num_active = registry.get_active_orders_count()
+        num_history = registry.get_history_orders_count()
+
+        assert num_active == expected_active_count
+        assert num_history == expected_history_count
+
+    @pytest.mark.parametrize("starting_status, advance_times, expected_status", [
+        ("pending", 0, "pending"),
+        ("pending", 1, "ready"),
+        ("pending", 2, "shipping"),
+        ("pending", 3, "collected"),
+        ("pending", 4, "collected"),
+        ("returning", 0, "returning"),
+        ("returning", 1, "returned"),
+        ("returning", 2, "returned"),
+        ("cancelled", 1, "cancelled"),
+    ], ids=[
+        "stay pending",
+        "to ready",
+        "to shipping",
+        "to collected",
+        "can not go past collected",
+        "stay returning",
+        "to returned",
+        "can not go past returned",
+        "can not change cancelled",
+    ])
+    def test_advance_order(self, registry: OrderRegistry, order: DigitalOrder, starting_status: str, advance_times: int, expected_status: str):
+        order.status = starting_status
+        order_id = order.id
+        registry.add_order(order)
+
+        for _ in range(advance_times):
+            registry.advance_order(order_id)
+
+        found = registry.get_order(order_id)
+
+        assert found != None
+        assert found.status == expected_status 
+
+    @pytest.mark.parametrize("email, expected_number_found", [
+        ("test@example.com", 2),
+        ("test@test.com", 1),
+        ("margaret@margaret.com", 0),
+        ({None}, 0),
+        ([], 0),
+        ("      ", 0),
+        ("", 0),
+        (True, 0),
+        (False, 0),
+        (None, 0),
+    ], ids=[
+        "many orders found",
+        "single order found",
+        "None orders found",
+        "bad type obj",
+        "bad type list",
+        "bad type white spaces",
+        "bad type empty string",
+        "bad type True",
+        "bad type False",
+        "bad type None",
+    ])
+    def test_order_find_by_email(self, registry: OrderRegistry, orders: list[DigitalOrder], email: str, expected_number_found: int):
+        for order in orders:
+            registry.add_order(order)
+        
+        result = registry.get_orders_by_email(email)
+
+        num_orders = len(result)
+
+        for order_id in result:
+            order = registry.get_order(order_id)
+            assert order != None
+            assert order.email == email
+
+        assert num_orders == expected_number_found
+
+    @pytest.mark.parametrize("starting_status, expected_result, isHistory", [
+        ("pending", True, True),
+        ("ready", True, True),
+        ("shipping", False, False),
+        ("collected", False, True),
+        ("cancelled", False, True),
+        ("returning", False, False),
+        ("returned", False, True),
+    ], ids=[
+        "cancelled pending",
+        "cancelled ready",
+        "cancelled shipping",
+        "cancelled collected",
+        "cancelled cancelled",
+        "cancelled returning",
+        "cancelled returned",
+    ])
+    def test_cancel_order(self, registry: OrderRegistry, order: DigitalOrder, starting_status: str, expected_result: bool, isHistory: bool):
+        order.status = starting_status
+        order_id = order.id
+        registry.add_order(order)
+        
+        result = registry.cancel_order(order_id)
+
+        assert result == expected_result
+        if isHistory:
+            assert order in registry.order_history
+        else:
+            assert order in registry.active_registry
+
+    @pytest.mark.parametrize("starting_status, expected_result, isHistory", [
+        ("pending", False, False),
+        ("ready", False, False),
+        ("shipping", False, False),
+        ("collected", True, False),
+        ("cancelled", False, True),
+        ("returning", False, False),
+        ("returned", False, True),
+    ], ids=[
+        "returned pending",
+        "returned ready",
+        "returned shipping",
+        "returned collected",
+        "returned cancelled",
+        "returned returning",
+        "returned returned",
+    ])
+    def test_return_order(self, registry: OrderRegistry, order: DigitalOrder, starting_status: str, expected_result: bool, isHistory: bool):
+        order.status = starting_status
+        order_id = order.id
+        registry.add_order(order)
+        
+        result = registry.return_order(order_id)
+
+        assert result == expected_result
+        if isHistory:
+            assert order in registry.order_history
+        else:
+            assert order in registry.active_registry
