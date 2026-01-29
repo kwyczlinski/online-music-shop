@@ -1,5 +1,6 @@
 from src.digital_order import DigitalOrder
 from src.physical_order import PhysicalOrder
+from src.custom_errors import *
 
 orderType = DigitalOrder | PhysicalOrder
 
@@ -66,14 +67,23 @@ class OrderRegistry:
     def return_order(self, order_id: str) -> bool:
         list_id = next((id for id in range(len(self.order_history)) if self.order_history[id].id == order_id), None)
         if list_id == None:
-            return False
+            raise OrderNotFoundError(f"Orders with id {order_id} not found in past orders")
         
         order = self.order_history.pop(list_id)
+
+        if isinstance(order, DigitalOrder):
+            self.order_history.append(order)
+            raise ReturnPolicyViolation("Digital orders can not be returned.")
+        
         can_return = order.file_return()
 
         if can_return:
             self.active_registry.append(order)
         else:
             self.order_history.append(order)
+            if order.status == "collected":
+                raise ReturnPolicyViolation("Order is past the 14-day return window.")
+            else:
+                raise ReturnPolicyViolation("Only collected orders are eligible for return.")
         
         return can_return
