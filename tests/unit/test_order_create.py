@@ -89,7 +89,7 @@ class TestOrder:
     def test_order_cancellation(self, order, starting_status, expected_status, succeeded):
         order.status = starting_status
 
-        success = order.cancell()
+        success = order.cancel()
 
         assert order.status == expected_status
         assert success == succeeded
