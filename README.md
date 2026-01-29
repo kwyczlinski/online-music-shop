@@ -16,15 +16,18 @@ python3 -m venv .venv
 
 . .venv/bin/activate
 
-pip install -r
+pip install -r requirements.txt
 
 ## How to execute tests
 
 Only unit: \
 python3 -m pytest -m "not integration"
 
-Run all: \
+Run unit and integration (Geoapify won't start without key): \
 python3 -m pytest
+
+Run Gherkin: \
+behave
 
 ## How to check coverage
 
