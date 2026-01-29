@@ -40,6 +40,7 @@ class TestOrder:
         assert order.product == expected_product
         assert order.status == expected_status
         assert order.email == expected_email
+        assert order.id != None
 
     @pytest.mark.parametrize("advance_times, starting_status, expected_status", [
         (1, "pending", "ready"),

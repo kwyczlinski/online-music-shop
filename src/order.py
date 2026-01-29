@@ -1,5 +1,6 @@
 import re
 from datetime import datetime, timezone, timedelta
+import uuid
 
 status_changes = {"pending" : "ready", "ready" : "shipping", "shipping" : "collected", "collected" : "collected", "cancelled" : "cancelled", "returning" : "returned", "returned" : "returned"}
 
@@ -9,6 +10,8 @@ class Order:
         self.email = email if self.verify_email(email)  else "Invalid"
         self.status = "pending" if self.product and self.verify_email(email) else "cancelled"
         self.collected_at = None
+        self.id = uuid.uuid4()
+
 
     def verify_product(self, product) -> bool:
         return True if isinstance(product, str) and len(product) > 0 else False
