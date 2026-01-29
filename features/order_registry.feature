@@ -176,3 +176,18 @@ Scenario: Filing a return
     And The order should be present in order history
     And Number of orders in active registry should be 0
     And Number of orders in order history should be 1
+
+Scenario: Finding an order by unique ID
+    Given The active registry has 1 digital order with ID "123-ABC"
+    When I search for an order with ID "123-ABC"
+    Then I should receive the details of the order with id "123-ABC"
+
+Scenario: Searching for orders by email
+    Given There are orders in the registry:
+      | title      | email            | type    |
+      | I see red  | user@example.com | digital |
+      | Blue Moon  | user@example.com | physical|
+      | Green Day  | other@test.com   | digital |
+    When I get orders for email "user@example.com"
+    Then I should see 2 orders in the results
+    And The results should contain "I see red" and "Blue Moon"
