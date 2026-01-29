@@ -24,14 +24,14 @@ class Order:
             self.collected_at = datetime.now(timezone.utc)
         self.status = status_changes.get(self.status, "cancelled")
 
-    def cancell(self) -> bool:
-        if ["pending", "ready"].count(self.status) > 0:
+    def cancel(self) -> bool:
+        if self.status in ["pending", "ready"]:
             self.status = "cancelled"
             return True
         return False
     
     def file_return(self) -> bool:
-        if self.collected_at and datetime.now(timezone.utc) <= self.collected_at + timedelta(days=14):
+        if self.collected_at != None and self.status == "collected" and datetime.now(timezone.utc) <= self.collected_at + timedelta(days=14):
             self.status = "returning"
             return True
         return False
