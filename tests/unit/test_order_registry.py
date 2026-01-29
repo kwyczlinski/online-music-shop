@@ -3,6 +3,7 @@ from src.order_registry import OrderRegistry
 from src.physical_order import PhysicalOrder
 import pytest
 from datetime import datetime, timezone, timedelta
+from src.custom_errors import *
 
 class TestOrderRegistry:
     @pytest.fixture()
@@ -86,13 +87,12 @@ class TestOrderRegistry:
     ])
     def test_advance_order(self, registry: OrderRegistry, order: DigitalOrder, starting_status: str, advance_times: int, expected_status: str):
         order.status = starting_status
-        order_id = order.id
         registry.add_order(order)
 
         for _ in range(advance_times):
-            registry.advance_order(order_id)
+            registry.advance_order(order.id)
 
-        found = registry.get_order(order_id)
+        found = registry.get_order(order.id)
 
         assert found != None
         assert found.status == expected_status 
@@ -128,8 +128,8 @@ class TestOrderRegistry:
 
         num_orders = len(result)
 
-        for order_id in result:
-            order = registry.get_order(order_id)
+        for order.id in result:
+            order = registry.get_order(order.id)
             assert order != None
             assert order.email == email
 
@@ -154,10 +154,9 @@ class TestOrderRegistry:
     ])
     def test_cancel_order(self, registry: OrderRegistry, order: DigitalOrder, starting_status: str, expected_result: bool, inHistory: bool):
         order.status = starting_status
-        order_id = order.id
         registry.add_order(order)
         
-        result = registry.cancel_order(order_id)
+        result = registry.cancel_order(order.id)
 
         assert result == expected_result
         if inHistory:
@@ -165,48 +164,50 @@ class TestOrderRegistry:
         else:
             assert order in registry.active_registry
 
-    @pytest.mark.parametrize("starting_status, expected_result, inHistory", [
-        ("pending", False, False),
-        ("ready", False, False),
-        ("shipping", False, False),
-        ("collected", True, False),
-        ("cancelled", False, True),
-        ("returning", False, False),
-        ("returned", False, True),
+    @pytest.mark.parametrize("starting_status, expected_error, expected_msg", [
+        ("pending", OrderNotFoundError, "not found in past orders"),
+        ("ready", OrderNotFoundError, "not found in past orders"),
+        ("shipping", OrderNotFoundError, "not found in past orders"),
+        ("cancelled", ReturnPolicyViolation, "eligible for return."),
+        ("returned", ReturnPolicyViolation, "eligible for return."),
     ], ids=[
         "tried to return when pending",
         "tried to return when ready",
         "tried to return when shipping",
-        "succesfully returned when collected",
         "tried to return when cancelled",
-        "tried to return when returning",
         "tried to return when returned",
     ])
-    def test_return_order(self, registry: OrderRegistry, physical_order: PhysicalOrder, starting_status: str, expected_result: bool, inHistory: bool):
-        physical_order.collected_at = datetime.now(timezone.utc) - timedelta(hours=1)
+    def test_fail_return_order(self, registry, physical_order, starting_status, expected_error, expected_msg):
         physical_order.status = starting_status
-        order_id = physical_order.id
+        physical_order.collected_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        
         if starting_status in ["collected", "cancelled", "returned"]:
             registry.order_history.append(physical_order)
         else:
             registry.active_registry.append(physical_order)
 
-        result = registry.return_order(order_id)
+        with pytest.raises(expected_error) as excinfo:
+            registry.return_order(physical_order.id)
+        assert expected_msg in str(excinfo.value)
 
-        assert result == expected_result
-        if inHistory:
-            assert physical_order in registry.order_history
-        else:
-            assert physical_order in registry.active_registry
+    def test_succesfull_return(self, registry: OrderRegistry, physical_order: PhysicalOrder):
+        physical_order.status = "collected"
+        physical_order.collected_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        registry.order_history.append(physical_order)
+
+        result = registry.return_order(physical_order.id)
+
+        assert result is True
+        assert physical_order in registry.active_registry
 
     def test_can_not_return_digital(self, registry: OrderRegistry, order: DigitalOrder):
         order.status = "collected"
         order.collected_at = datetime.now(timezone.utc) - timedelta(hours=1)
-        order_id = order.id
         registry.order_history.append(order)
 
-        result = registry.return_order(order_id)
-
-        assert result == False
+        with pytest.raises(ReturnPolicyViolation) as excinfo:
+            registry.return_order(order.id)
+        
+        assert "Digital orders can not be returned." in str(excinfo.value)
         assert order in registry.order_history
         assert registry.get_active_orders_count() == 0
