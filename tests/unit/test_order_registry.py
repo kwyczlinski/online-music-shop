@@ -72,10 +72,17 @@ class TestOrderRegistry:
         for order in invalid_orders:
             registry.add_order(order)
 
+        expected_active = [order for i,order in enumerate(valid_orders) if isinstance(order, DigitalOrder)]
+        expected_history = [order for i,order in enumerate(invalid_orders) if isinstance(order, DigitalOrder)]
+
+        active = registry.get_active_orders()
         num_active = registry.get_active_orders_count()
+        history = registry.get_history_orders()
         num_history = registry.get_history_orders_count()
 
+        assert active == expected_active
         assert num_active == expected_active_count
+        assert history == expected_history
         assert num_history == expected_history_count
 
     @pytest.mark.parametrize("starting_status, advance_times, expected_status", [
@@ -191,7 +198,7 @@ class TestOrderRegistry:
         "tried to return when cancelled",
         "tried to return when returned",
     ])
-    def test_fail_return_order(self, registry, physical_order, starting_status, expected_error, expected_msg):
+    def test_fail_return_order(self, registry: OrderRegistry, physical_order: PhysicalOrder, starting_status: str, expected_error, expected_msg: str):
         physical_order.status = starting_status
         physical_order.collected_at = datetime.now(timezone.utc) - timedelta(hours=1)
         
@@ -226,12 +233,14 @@ class TestOrderRegistry:
         assert order in registry.order_history
         assert registry.get_active_orders_count() == 0
 
-    def test_can_not_change_digital_order_address(self, registry: OrderRegistry, order: DigitalOrder, valid_address):
-        registry.active_registry.append(order)
-
-        result = registry.update_address(order.id, valid_address)
-
-        assert result == False
+    def test_past_return_date(self, registry: OrderRegistry, physical_order: PhysicalOrder):
+        physical_order.status = "collected"
+        physical_order.collected_at = datetime.now(timezone.utc) - timedelta(days=31)
+        registry.order_history.append(physical_order)
+        
+        with pytest.raises(ReturnPolicyViolation) as excinfo:
+            registry.return_order(physical_order.id)
+        assert "Order is past the 14-day return window." in str(excinfo.value)
 
     @pytest.mark.parametrize("new_email, expected_result", [
         ("new.test@example.com", True),
@@ -264,6 +273,10 @@ class TestOrderRegistry:
         else:
             assert order.email == original_email
 
+    def test_fail_email_change_no_id(self, registry: OrderRegistry):
+        result = registry.update_email("non-existant-id", "test@example.com")
+        assert result == False
+
     @pytest.mark.parametrize("starting_status, use_valid_address, expected_result", [
         ("pending", True, True),
         ("ready", True, True),
@@ -295,3 +308,12 @@ class TestOrderRegistry:
             assert physical_order.address == target_address
         else:
             assert physical_order.address != target_address
+
+    def test_can_not_change_digital_order_address(self, registry: OrderRegistry, order: DigitalOrder, valid_address):
+        registry.active_registry.append(order)
+        result = registry.update_address(order.id, valid_address)
+        assert result == False
+
+    def test_fail_address_change_no_id(self, registry: OrderRegistry, valid_address):
+        result = registry.update_address("non-existant-id", valid_address)
+        assert result == False
