@@ -19,17 +19,17 @@ def clear_active_registry(context, registry):
     if registry.lower() not in REGISTRIES:
         raise ValueError(f"Invalid registry: {registry}. Must be one of {REGISTRIES}.")
     
-    url = f"/api/orders/{'active' if registry.lower() == 'active' else 'history'}"
+    url = f"{context.base_url}/api/orders/{'active' if registry.lower() == 'active' else 'history'}"
     delete_resp = context.client.delete(url)
     assert delete_resp.status_code in [200, 204]
 
 @step('I create a digital order for "{product}" with email "{email}"') # type: ignore
 def create_digital_order(context, product: str, email: str):
     payload = {"product": product, "email": email}
-    post_resp = context.client.post("/api/orders/digital", json=payload)
+    post_resp = context.client.post(f"{context.base_url}/api/orders/digital", json=payload)
 
     assert post_resp.status_code == 201
-    context.current_order = post_resp.get_json()
+    context.current_order = post_resp.json()
 
 @then('The order should be present in {registry} registry') # type: ignore
 def order_in_registry(context, registry: str):
@@ -38,11 +38,11 @@ def order_in_registry(context, registry: str):
     if registry not in REGISTRIES:
         raise ValueError(f"Invalid registry: {registry}. Must be one of {REGISTRIES}.")
 
-    url = f"/api/orders/{'active' if registry == 'active' else 'history'}"
+    url = f"{context.base_url}/api/orders/{'active' if registry == 'active' else 'history'}"
     get_resp = context.client.get(url)
     
     assert get_resp.status_code == 200
-    orders_ids = [order.get('id') for order in get_resp.get_json()]
+    orders_ids = [order.get('id') for order in get_resp.json()]
 
     assert context.current_order.get('id') in orders_ids
 
@@ -68,11 +68,11 @@ def registry_count(context, registry, count):
     if not isinstance(count, int) or count < 0: 
         raise ValueError(f"Invalid count: {count}. Must be one an non negative integer.")
 
-    url = f"/api/orders/{'active' if registry == 'active' else 'history'}/count"
+    url = f"{context.base_url}/api/orders/{'active' if registry == 'active' else 'history'}/count"
     get_resp = context.client.get(url)    
 
     assert get_resp.status_code == 200
-    orders_count = get_resp.get_json().get("count")
+    orders_count = get_resp.json().get("count")
 
     assert orders_count == count
 
@@ -80,10 +80,10 @@ def registry_count(context, registry, count):
 def create_physical_order(context, product, email):
     address = {row['field']: (None if row['value'] == "None" else row['value']) for row in context.table}
     payload = {"product": product, "email": email, "address": address}
-    post_resp = context.client.post("/api/orders/physical", json=payload)
+    post_resp = context.client.post(f"{context.base_url}/api/orders/physical", json=payload)
 
     assert post_resp.status_code == 201
-    context.current_order = post_resp.get_json()
+    context.current_order = post_resp.json()
     assert context.current_order.get("product") == product
     assert context.current_order.get("email") == email
 
@@ -93,11 +93,11 @@ def match_address(context):
         raise ValueError(f"No last order to reffer to.")
     address = {row['field']: (None if row['value'] == "None" else row['value']) for row in context.table}
 
-    url = f"/api/order/{context.current_order.get('id')}"
+    url = f"{context.base_url}/api/order/{context.current_order.get('id')}"
     get_resp = context.client.get(url)
 
     assert get_resp.status_code == 200 
-    order_address = get_resp.get_json().get("address")
+    order_address = get_resp.json().get("address")
 
     for key, value in address.items():
         assert value == order_address.get(key)
@@ -108,18 +108,18 @@ def change_email(context, email):
         raise ValueError(f"No last order to reffer to.")
 
     payload = {"email": email}
-    url = f"/api/order/{context.current_order.get('id')}/email"
+    url = f"{context.base_url}/api/order/{context.current_order.get('id')}/email"
     patch_resp = context.client.patch(url, json=payload)
 
     if patch_resp.status_code in [200, 204]:
         if patch_resp.status_code == 200:  
-            order = patch_resp.get_json()
+            order = patch_resp.json()
         else:
-            url = f"/api/order/{context.current_order.get('id')}"
+            url = f"{context.base_url}/api/order/{context.current_order.get('id')}"
             get_resp = context.client.get(url)
 
             assert get_resp.status_code == 200
-            order = get_resp.get_json()
+            order = get_resp.json()
 
         assert email == order.get("email")
         context.current_order = order
@@ -130,11 +130,11 @@ def change_email(context, email):
 def match_email(context, email):
     if not context.current_order:
         raise ValueError(f"No last order to reffer to.")
-    url = f"/api/order/{context.current_order.get('id')}"
+    url = f"{context.base_url}/api/order/{context.current_order.get('id')}"
     get_resp = context.client.get(url)
     
     assert get_resp.status_code == 200
-    order = get_resp.get_json()
+    order = get_resp.json()
 
     assert email == order.get("email")
 
@@ -148,18 +148,18 @@ def change_address(context):
             raise ValueError(f"Missing address key: {key}. All address keys neccessary: {ADDRESS_KEYS}.")
 
     payload = {"address": address}
-    url = f"/api/order/{context.current_order.get('id')}/address"
+    url = f"{context.base_url}/api/order/{context.current_order.get('id')}/address"
     patch_resp = context.client.patch(url, json=payload)
 
     if patch_resp.status_code in [200, 204]:
         if patch_resp.status_code == 200:
-            order = patch_resp.get_json()
+            order = patch_resp.json()
         else:
-            url = f"/api/order/{context.current_order.get('id')}"
+            url = f"{context.base_url}/api/order/{context.current_order.get('id')}"
             get_resp = context.client.get(url)
 
             assert get_resp.status_code == 200
-            order = get_resp.get_json()
+            order = get_resp.json()
             
         order_address = order.get("address")
         for key, value in address.items():
@@ -180,27 +180,27 @@ def populate_registry(context, registry, order_type):
     if order_type == "physical":
         payload["address"] = ADDRESS
 
-    url = f"/api/orders/{'digital' if order_type == 'digital' else 'physical'}"
+    url = f"{context.base_url}/api/orders/{'digital' if order_type == 'digital' else 'physical'}"
     post_resp = context.client.post(url, json=payload)
 
     assert post_resp.status_code == 201
-    order = post_resp.get_json()
+    order = post_resp.json()
 
     patch_resp = None
     if registry == "history":
-        url = f"api/order/{order.get('id')}/advance"
+        url = f"{context.base_url}/api/order/{order.get('id')}/advance"
         for _ in range(3):
             patch_resp = context.client.patch(url)
             assert patch_resp.status_code in [200, 204]
 
     if patch_resp and patch_resp.status_code == 200:
-        order = patch_resp.get_json()
+        order = patch_resp.json()
     else:
-        url = f"/api/order/{order.get('id')}"
+        url = f"{context.base_url}/api/order/{order.get('id')}"
         get_resp = context.client.get(url)
 
         assert get_resp.status_code == 200
-        order = get_resp.get_json()
+        order = get_resp.json()
     
     context.current_order = order
 
@@ -209,19 +209,19 @@ def cancel_order(context):
     if not context.current_order:
         raise ValueError(f"No last order to reffer to.")
 
-    url = f"/api/order/{context.current_order.get('id')}/cancel"
+    url = f"{context.base_url}/api/order/{context.current_order.get('id')}/cancel"
     patch_resp = context.client.patch(url)
 
     assert patch_resp.status_code in [200, 204]
 
     if patch_resp.status_code == 200:  
-        order = patch_resp.get_json()
+        order = patch_resp.json()
     else:
-        url = f"/api/order/{context.current_order.get('id')}"
+        url = f"{context.base_url}/api/order/{context.current_order.get('id')}"
         get_resp = context.client.get(url)
 
         assert get_resp.status_code == 200
-        order = get_resp.get_json()
+        order = get_resp.json()
 
     context.current_order = order
 
@@ -232,20 +232,20 @@ def advance_order(context, count):
     if not isinstance(count, int) or count < 0: 
         raise ValueError(f"Invalid count: {count}. Must be one an non negative integer.")
 
-    url = f"api/order/{context.current_order.get('id')}/advance"
+    url = f"{context.base_url}/api/order/{context.current_order.get('id')}/advance"
     patch_resp = None
     for _ in range(count):
         patch_resp = context.client.patch(url)
         assert patch_resp.status_code in [200, 204]
 
     if patch_resp and patch_resp.status_code == 200:
-        order = patch_resp.get_json()
+        order = patch_resp.json()
     else:
-        url = f"/api/order/{context.current_order.get('id')}"
+        url = f"{context.base_url}/api/order/{context.current_order.get('id')}"
         get_resp = context.client.get(url)
 
         assert get_resp.status_code == 200
-        order = get_resp.get_json()
+        order = get_resp.json()
     
     context.current_order = order
 
@@ -254,19 +254,19 @@ def return_order(context):
     if not context.current_order:
         raise ValueError(f"No last order to reffer to.")
     
-    url = f"/api/order/{context.current_order.get('id')}/return"
+    url = f"{context.base_url}/api/order/{context.current_order.get('id')}/return"
     patch_resp = context.client.patch(url)
 
     assert patch_resp.status_code in [200, 204]
 
     if patch_resp.status_code == 200:
-        order = patch_resp.get_json()
+        order = patch_resp.json()
     else:
-        url = f"/api/order/{context.current_order.get('id')}"
+        url = f"{context.base_url}/api/order/{context.current_order.get('id')}"
         get_resp = context.client.get(url)
 
         assert get_resp.status_code == 200
-        order = get_resp.get_json()
+        order = get_resp.json()
     
     context.current_order = order
 
@@ -278,7 +278,7 @@ def add_multiple_orders(context):
         if order.get("type") not in ORDER_TYPES:
             raise ValueError(f"Invalid order type: {order.get('type')}. Must be one of {ORDER_TYPES}.")
 
-        url = f"/api/orders/{'digital' if order.get('type') == 'digital' else 'physical'}"
+        url = f"{context.base_url}/api/orders/{'digital' if order.get('type') == 'digital' else 'physical'}"
         payload = {"product": order.get('product'), "email": order.get('email'), "address": ADDRESS}
         post_resp = context.client.post(url, json=payload)
 
@@ -288,11 +288,11 @@ def add_multiple_orders(context):
 def get_by_email(context, email):
     safe_email = quote(email)
 
-    url = f"/api/orders/email/{safe_email}"
+    url = f"{context.base_url}/api/orders/email/{safe_email}"
     get_resp = context.client.get(url)
 
     assert get_resp.status_code == 200
-    context.results = get_resp.get_json()
+    context.results = get_resp.json()
 
 @then('I should see {count:d} orders in the results') # type: ignore
 def results_count(context, count):

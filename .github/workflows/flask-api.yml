@@ -1,0 +1,33 @@
+name: BDD API test
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  performance-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Start Flask Server
+        run: |
+          export PYTHONPATH=$GITHUB_WORKSPACE
+          python3 app/run.py &
+          timeout 30s bash -c 'until curl -s localhost:5000/api/orders/active > /dev/null; do sleep 1; done'
+
+      - name: Run BDD Tests
+        run: |
+          behave

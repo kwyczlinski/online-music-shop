@@ -1,10 +1,10 @@
-# import sys
-# import os
-# # Ensure the src directory is in the path
-# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
-
-from app.api import create_app
+import requests
 
 def before_scenario(context, scenario):
-    context.app = create_app()
-    context.client = context.app.test_client()
+    context.base_url = "http://127.0.0.1:5000"
+    
+    context.client = requests.Session()
+
+    # czyszczenie registry pomiędzy testami
+    context.client.delete(f"{context.base_url}/api/orders/active")
+    context.client.delete(f"{context.base_url}/api/orders/history")
