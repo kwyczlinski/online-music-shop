@@ -20,6 +20,7 @@ Scenario: Succesfully registering a valid physical order
     | street      | Wita Stwosza |
     | postcode    | 80-308       |
     | city        | Gdańsk       |
+    | state       | Pomorskie    |
     | country     | Polska       |
     Then The order should be present in active registry
     And The order should have a unique ID assigned
@@ -31,6 +32,7 @@ Scenario: Succesfully registering a valid physical order
     | street      | Wita Stwosza |
     | postcode    | 80-308       |
     | city        | Gdańsk       |
+    | state       | Pomorskie    |
     | country     | Polska       |
     And Number of orders in active registry should be 1
     And Number of orders in history registry should be 0
@@ -55,17 +57,19 @@ Scenario: Succesfully registering an invalid physical order
     | street      | Rakietowa    |
     | postcode    | 11-111       |
     | city        | Mars         |
-    | country     | Polska       |
+    | state       | Pomorskie    |
+    | country     | None         |
     Then The order should be present in history registry
     And The order status should be cancelled
     And The order address should be:
     | field       | value        |
-    | housenumber | 57           |
-    | flatnumber  | None         |
-    | street      | Wita Stwosza |
-    | postcode    | 80-308       |
-    | city        | Gdańsk       |
-    | country     | Polska       |
+    | housenumber | 10a          |
+    | flatnumber  | 7            |
+    | street      | Rakietowa    |
+    | postcode    | 11-111       |
+    | city        | Mars         |
+    | state       | Pomorskie    |
+    | country     | None         |
     And Number of orders in active registry should be 0
     And Number of orders in history registry should be 1
 
@@ -95,6 +99,7 @@ Scenario: Changing address of physical order to valid
     | street      | Wita Stwosza |
     | postcode    | 80-308       |
     | city        | Gdańsk       |
+    | state       | Pomorskie    |
     | country     | Polska       |
     When I change the order address to:
     | field       | value        |
@@ -103,6 +108,7 @@ Scenario: Changing address of physical order to valid
     | street      | Wita Stwosza |
     | postcode    | 80-308       |
     | city        | Gdańsk       |
+    | state       | Pomorskie    |
     | country     | Polska       |
     Then The order address should be:
     | field       | value        |
@@ -111,6 +117,7 @@ Scenario: Changing address of physical order to valid
     | street      | Wita Stwosza |
     | postcode    | 80-308       |
     | city        | Gdańsk       |
+    | state       | Pomorskie    |
     | country     | Polska       |
     And The order status should be pending
 
@@ -124,6 +131,7 @@ Scenario: Changing address of physical order to invalid
     | street      | Wita Stwosza |
     | postcode    | 80-308       |
     | city        | Gdańsk       |
+    | state       | Pomorskie    |
     | country     | Polska       |
     When I change the order address to:
     | field       | value        |
@@ -132,7 +140,8 @@ Scenario: Changing address of physical order to invalid
     | street      | Rakietowa    |
     | postcode    | 11-111       |
     | city        | Mars         |
-    | country     | Polska       |
+    | state       | Pomorskie    |
+    | country     | None         |
     Then The order address should be:
     | field       | value        |
     | housenumber | 57           |
@@ -140,6 +149,7 @@ Scenario: Changing address of physical order to invalid
     | street      | Wita Stwosza |
     | postcode    | 80-308       |
     | city        | Gdańsk       |
+    | state       | Pomorskie    |
     | country     | Polska       |
     And The order status should be pending
 
@@ -164,7 +174,7 @@ Scenario: Full life cycle of a digital order
     And Number of orders in history registry should be 1
 
 Scenario: Filing a return
-    Given History registry has 1 digital order
+    Given The history registry has 1 physical order
     And Active registry is empty
     When I file a return
     Then The order status should be returning

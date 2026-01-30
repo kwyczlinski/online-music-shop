@@ -21,7 +21,6 @@ class PhysicalOrder(Order):
         flat_number: str | None = address.get("flatnumber", None)
         if (flat_number != None and (not isinstance(flat_number, str) or len(flat_number.strip()) == 0)):
             return False
-        
         for key in NECESSARY_ADDRESS_KEYS:
             value: str | None = address.get(key, None)
 
