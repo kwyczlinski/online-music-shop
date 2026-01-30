@@ -20,16 +20,26 @@ pip install -r requirements.txt
 
 ## How to execute tests
 
-Only unit: \
+#### Only unit:
+
 python3 -m pytest -m "not integration"
 
 Run unit and integration (Geoapify won't start without key): \
 python3 -m pytest
 
-Run Gherkin: \
+#### BDD API & performance tests
+
+Before tests start flask server: \
+export PYTHONPATH=$PWD
+python3 app/run.py &
+
+Run BDD API tests: \
 behave
 
-## How to check coverage
+Run performance tests: \
+python3 -m pytest tests/perf/test_performance.py
+
+## How to check coverage (API is tested through http hence no coverage)
 
 python3 -m coverage run --source=src -m pytest
 
