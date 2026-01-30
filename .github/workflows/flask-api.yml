@@ -7,7 +7,7 @@ on:
     branches: ["main"]
 
 jobs:
-  performance-test:
+  bdd-api-test:
     runs-on: ubuntu-latest
 
     steps:
