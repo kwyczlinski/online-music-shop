@@ -28,7 +28,7 @@ class TestOrderRegistry:
 
     def test_registry_creation(self, registry: OrderRegistry):
         assert registry.active_registry == []
-        assert registry.order_history == []
+        assert registry.history_registry == []
 
     @pytest.fixture()
     def mock_api(self, mocker):
@@ -149,7 +149,7 @@ class TestOrderRegistry:
 
         num_orders = len(result)
 
-        for order.id in result:
+        for order in result:
             order = registry.get_order(order.id)
             assert order != None
             assert order.email == email
@@ -181,7 +181,7 @@ class TestOrderRegistry:
 
         assert result == expected_result
         if inHistory:
-            assert order in registry.order_history
+            assert order in registry.history_registry
         else:
             assert order in registry.active_registry
 
@@ -203,7 +203,7 @@ class TestOrderRegistry:
         physical_order.collected_at = datetime.now(timezone.utc) - timedelta(hours=1)
         
         if starting_status in ["collected", "cancelled", "returned"]:
-            registry.order_history.append(physical_order)
+            registry.history_registry.append(physical_order)
         else:
             registry.active_registry.append(physical_order)
 
@@ -214,7 +214,7 @@ class TestOrderRegistry:
     def test_succesfull_return(self, registry: OrderRegistry, physical_order: PhysicalOrder):
         physical_order.status = "collected"
         physical_order.collected_at = datetime.now(timezone.utc) - timedelta(hours=1)
-        registry.order_history.append(physical_order)
+        registry.history_registry.append(physical_order)
 
         result = registry.return_order(physical_order.id)
 
@@ -224,19 +224,19 @@ class TestOrderRegistry:
     def test_can_not_return_digital(self, registry: OrderRegistry, order: DigitalOrder):
         order.status = "collected"
         order.collected_at = datetime.now(timezone.utc) - timedelta(hours=1)
-        registry.order_history.append(order)
+        registry.history_registry.append(order)
 
         with pytest.raises(ReturnPolicyViolation) as excinfo:
             registry.return_order(order.id)
         
         assert "Digital orders can not be returned." in str(excinfo.value)
-        assert order in registry.order_history
+        assert order in registry.history_registry
         assert registry.get_active_orders_count() == 0
 
     def test_past_return_date(self, registry: OrderRegistry, physical_order: PhysicalOrder):
         physical_order.status = "collected"
         physical_order.collected_at = datetime.now(timezone.utc) - timedelta(days=31)
-        registry.order_history.append(physical_order)
+        registry.history_registry.append(physical_order)
         
         with pytest.raises(ReturnPolicyViolation) as excinfo:
             registry.return_order(physical_order.id)

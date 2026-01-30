@@ -68,7 +68,7 @@ def registry_count(context, registry, count):
     get_resp = context.client.get(url)    
 
     assert get_resp.status_code == 200
-    orders_count = get_resp.get_json()
+    orders_count = get_resp.get_json().get("count")
 
     assert orders_count == count
 
@@ -220,7 +220,7 @@ def advance_order(context, count):
     if not isinstance(count, int) or count < 0: 
         raise ValueError(f"Invalid count: {count}. Must be one an non negative integer.")
 
-    url = f"api/order/advance/{context.current_order.get('id')}"
+    url = f"api/order/{context.current_order.get('id')}/advance"
     for _ in range(count):
         patch_resp = context.client.patch(url)
         assert patch_resp.status_code in [200, 204]
@@ -298,9 +298,7 @@ def results_contain_products(context):
     products = [row["product"] for row in context.table]
 
     for prod in products:
-        contains = False
-        for res in context.results:
-            if res.get("product") == prod:
-                contains = True
+        contains = any(res.get("product") == prod for res in context.results)
+        assert contains
 
         assert contains == True

@@ -7,14 +7,14 @@ orderType = DigitalOrder | PhysicalOrder
 class OrderRegistry:
     def __init__(self) -> None:
         self.active_registry: list[orderType] = []
-        self.order_history: list[orderType] = []
+        self.history_registry: list[orderType] = []
 
     def add_order(self, order: orderType) -> bool:
         if not isinstance(order, (DigitalOrder, PhysicalOrder)):
             return False
         
         if order.status in ["collected", "cancelled", "returned"]:
-            self.order_history.append(order)
+            self.history_registry.append(order)
         else:
             self.active_registry.append(order)
 
@@ -27,20 +27,21 @@ class OrderRegistry:
         return len(self.active_registry)
     
     def get_history_orders(self) -> list[orderType]:
-        return self.order_history
+        return self.history_registry
     
     def get_history_orders_count(self) -> int:
-        return len(self.order_history)
+        return len(self.history_registry)
     
     def get_order(self, order_id: str) -> orderType | None:
         found = next((order for order in self.active_registry if order.id == order_id), None)
         if found:
             return found
         
-        return next((order for order in self.order_history if order.id == order_id), None)
+        return next((order for order in self.history_registry if order.id == order_id), None)
     
-    def get_orders_by_email(self, email: str) -> list[str]:
-        return [order.id for i,order in enumerate(self.active_registry) if order.email == email]
+    def get_orders_by_email(self, email: str) -> list[orderType]:
+        all_orders = self.active_registry + self.history_registry
+        return [order for i, order in enumerate(all_orders) if order.email == email]
 
     def cancel_order(self, order_id: str) -> bool:
         list_id = next((id for id in range(len(self.active_registry)) if self.active_registry[id].id == order_id), None)
@@ -51,28 +52,33 @@ class OrderRegistry:
         can_cancel = order.cancel()
 
         if can_cancel:
-            self.order_history.append(order)
+            self.history_registry.append(order)
         else:
             self.active_registry.append(order)
 
         return can_cancel
 
-    def advance_order(self, order_id: str) -> str | None:
-        order = next((order for order in self.active_registry if order.id == order_id), None)
-        if not order:
+    def advance_order(self, order_id: str) -> orderType | None:
+        list_id = next((id for id in range(len(self.active_registry)) if self.active_registry[id].id == order_id), None)
+        if list_id == None:
             return None
+        order = self.active_registry.pop(list_id)
         order.change_status()
-        return order.status
+        if order.status in ["collected", "returned"]:
+            self.history_registry.append(order)
+        else:
+            self.active_registry.append(order)
+        return order
 
     def return_order(self, order_id: str) -> bool:
-        list_id = next((id for id in range(len(self.order_history)) if self.order_history[id].id == order_id), None)
+        list_id = next((id for id in range(len(self.history_registry)) if self.history_registry[id].id == order_id), None)
         if list_id == None:
             raise OrderNotFoundError(f"Orders with id {order_id} not found in past orders")
         
-        order = self.order_history.pop(list_id)
+        order = self.history_registry.pop(list_id)
 
         if isinstance(order, DigitalOrder):
-            self.order_history.append(order)
+            self.history_registry.append(order)
             raise ReturnPolicyViolation("Digital orders can not be returned.")
         
         can_return = order.file_return()
@@ -80,7 +86,7 @@ class OrderRegistry:
         if can_return:
             self.active_registry.append(order)
         else:
-            self.order_history.append(order)
+            self.history_registry.append(order)
             if order.status == "collected":
                 raise ReturnPolicyViolation("Order is past the 14-day return window.")
             else:
