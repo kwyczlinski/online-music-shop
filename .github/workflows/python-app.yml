@@ -36,11 +36,11 @@ jobs:
 
       - name: Run Unit Tests
         run: |
-          python3 -m coverage run --source=src -m pytest tests/unit
+          python3 -m coverage run --source=src,app -m pytest tests/unit
 
       - name: Run BDD Tests
         run: |
-          python3 -m coverage run -a --source=src -m behave
+          python3 -m coverage run -a --source=src,app -m behave
 
       - name: Check code coverage
         run: |
