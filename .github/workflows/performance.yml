@@ -1,4 +1,4 @@
-name: BDD API test
+name: API Performance
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: ["main"]
 
 jobs:
-  bdd-api-test:
+  performance-test:
     runs-on: ubuntu-latest
 
     steps:
@@ -28,6 +28,7 @@ jobs:
           python3 app/run.py &
           timeout 30s bash -c 'until curl -s localhost:5000/api/orders/active > /dev/null; do sleep 1; done'
 
-      - name: Run BDD Tests
+      - name: Run Performance Tests
         run: |
-          behave
+          export PYTHONPATH=$GITHUB_WORKSPACE
+          python3 -m pytest tests/perf/test_performance.py
