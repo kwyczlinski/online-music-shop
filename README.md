@@ -30,7 +30,7 @@ python3 -m pytest
 #### BDD API & performance tests
 
 Before tests start flask server: \
-export PYTHONPATH=$PWD
+export PYTHONPATH=$PWD \
 python3 app/run.py &
 
 Run BDD API tests: \
