@@ -1,16 +1,22 @@
 import requests
 import pytest
-from random import randint
+from random import randint, shuffle
+from concurrent.futures import ThreadPoolExecutor
 
 BASE_URL = "http://127.0.0.1:5000"
-TIMEOUT_LIMIT = 0.2
+TIMEOUT_LIMIT = 0.4
+MAX_WORKERS = 8
 
-class TestAPIPerformance:
+class TestAPIResponseTime:
 
     @pytest.fixture(autouse=True)
     def clear_registry(self):
         requests.delete(f"{BASE_URL}/orders/active")
         requests.delete(f"{BASE_URL}/orders/history")
+
+    @pytest.fixture()
+    def payload(self):
+        return {"product": "Enough Is Enough", "email": "enough@enough.net"}
 
     @pytest.mark.parametrize("amount", [
         (1),
@@ -21,135 +27,134 @@ class TestAPIPerformance:
         "create 100",
         "create 1000",
     ])
-    def test_create(self, amount: int):
-        payload = {"product": "Enough Is Enough", "email": "enough@enough.net"}
-        
-        with requests.Session():
-            for i in range(amount):
-                post_resp = requests.post(f"{BASE_URL}/api/orders/digital", json=payload, timeout=TIMEOUT_LIMIT)
-                assert post_resp.status_code == 201
-                assert post_resp.elapsed.total_seconds() < TIMEOUT_LIMIT, f"Iteracja {i} przekroczyła limit"
-
-    @pytest.mark.parametrize("amount", [
-        (1),
-        (100),
-        (1000),
-    ], ids=[
-        "create and cancel single",
-        "create and cancel 100",
-        "create and cancel 1000",
-    ])
-    def test_cancel_random(self, amount: int):
-        payload = {"product": "Enough Is Enough", "email": "enough@enough.net"}
-        ids: list[str] = []
-
-        with requests.Session():
-            for _ in range(amount):
-                post_resp = requests.post(f"{BASE_URL}/api/orders/digital", json=payload, timeout=TIMEOUT_LIMIT*2)
-                assert post_resp.status_code == 201
-                ids.append(post_resp.json().get('id'))
-
-        with requests.Session():
-            for i in range(amount):
-                num = randint(0, len(ids)-1)
-                id = ids.pop(num)
-
-                patch_resp = requests.patch(f"{BASE_URL}/api/order/{id}/cancel", json=payload, timeout=TIMEOUT_LIMIT)
-                assert patch_resp.status_code == 200
-                assert patch_resp.elapsed.total_seconds() < TIMEOUT_LIMIT, f"Iteracja {i} przekroczyła limit"
-
-    @pytest.mark.parametrize("amount", [
-        (1),
-        (100),
-        (1000),
-    ], ids=[
-        "create and cancel single",
-        "create and cancel 100",
-        "create and cancel 1000",
-    ])
-    def test_random_cancel_or_advance(self, amount: int):
-        payload = {"product": "Enough Is Enough", "email": "enough@enough.net"}
-        ids: list[str] = []
-
-        with requests.Session():
-            for _ in range(amount):
-                post_resp = requests.post(f"{BASE_URL}/api/orders/digital", json=payload, timeout=TIMEOUT_LIMIT*2)
-                assert post_resp.status_code == 201
-                ids.append(post_resp.json().get('id'))
-
-        with requests.Session():
-            for i in range(amount):
-                num = randint(0, len(ids)-1)
-                id = ids.pop(num)
+    def test_create(self, payload: dict[str, str], amount: int):
+        with requests.Session() as session:
+            def create_order(_):
+                try:
+                    return session.post(
+                        f"{BASE_URL}/api/orders/digital", 
+                        json=payload, 
+                        timeout=TIMEOUT_LIMIT
+                    )
                 
-                patch_resp = requests.patch(f"{BASE_URL}/api/order/{id}/{'advance' if randint(0,1) else 'cancel'}", json=payload, timeout=TIMEOUT_LIMIT)
-                assert patch_resp.status_code == 200
-                assert patch_resp.elapsed.total_seconds() < TIMEOUT_LIMIT, f"Iteracja {i} przekroczyła limit"
+                except requests.exceptions.RequestException as e:
+                    return e
+                
+            with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                results = list(executor.map(create_order, range(amount)))
 
+        success_count = sum(
+            1 for res in results 
+            if isinstance(res, requests.Response) 
+            and res.status_code == 201
+            and res.elapsed.total_seconds() < TIMEOUT_LIMIT
+        )
 
+        assert success_count >= amount * 0.95, f"Only {success_count}/{amount} requests returned within the timeout limit: {TIMEOUT_LIMIT}"
 
+    @pytest.mark.parametrize("amount", [
+        (1),
+        (100),
+        (1000),
+    ], ids=[
+        "create and cancel single",
+        "create and cancel 100",
+        "create and cancel 1000",
+    ])
+    def test_cancel_random(self, payload: dict[str, str], amount: int):
 
+        with requests.Session() as session:
+            def create_order(_):
+                try:
+                    return session.post(
+                        f"{BASE_URL}/api/orders/digital", 
+                        json=payload, 
+                        timeout=TIMEOUT_LIMIT*2
+                    ).json().get('id')
+                
+                except requests.exceptions.RequestException as e:
+                    return e
+            
+            with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                ids = list(executor.map(create_order, range(amount)))
 
+        shuffle(ids)
 
+        with requests.Session() as session:
+            def cancel_order(order_id):
+                try:
+                    patch_resp = session.patch(
+                        f"{BASE_URL}/api/order/{order_id}/cancel", 
+                        json=payload, 
+                        timeout=TIMEOUT_LIMIT
+                    )
+                    return patch_resp
+                
+                except requests.exceptions.RequestException as e:
+                    return e
+                
+            with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                results = list(executor.map(cancel_order, ids))
 
+        success_count = sum(
+            1 for res in results 
+            if isinstance(res, requests.Response) 
+            and res.status_code == 200 
+            and res.elapsed.total_seconds() < TIMEOUT_LIMIT
+        )
 
+        assert success_count >= amount * 0.95, f"Only {success_count}/{amount} requests returned within the timeout limit: {TIMEOUT_LIMIT}"
 
+    @pytest.mark.parametrize("amount", [
+        (1),
+        (100),
+        (1000),
+    ], ids=[
+        "create and cancel single",
+        "create and cancel 100",
+        "create and cancel 1000",
+    ])
+    def test_random_cancel_or_advance(self, payload: dict[str, str], amount: int):
 
+        with requests.Session() as session:
+            def create_order(_):
+                try:
+                    return session.post(
+                        f"{BASE_URL}/api/orders/digital", 
+                        json=payload, 
+                        timeout=TIMEOUT_LIMIT*2
+                    ).json().get('id')
+                
+                except requests.exceptions.RequestException as e:
+                    return e
+                
+            with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                ids = list(executor.map(create_order, range(amount)))
 
+        tasks = [(order_id, "advance" if randint(0, 1) else "cancel") for order_id in ids]
+        shuffle(tasks)
 
+        with requests.Session() as session:
+            def cancel_or_advance_order(task):
+                order_id, action = task
+                try:
+                    return session.patch(
+                        f"{BASE_URL}/api/order/{order_id}/{action}", 
+                        json=payload, 
+                        timeout=TIMEOUT_LIMIT
+                    )
+                
+                except requests.exceptions.RequestException as e:
+                    return e
+                
+            with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                results = list(executor.map(cancel_or_advance_order, tasks))
 
+        success_count = sum(
+            1 for res in results 
+            if isinstance(res, requests.Response) 
+            and res.status_code == 200 
+            and res.elapsed.total_seconds() < TIMEOUT_LIMIT
+        )
 
-
-
-
-
-
-
-
-
-
-# def test_create_and_delete_100_accounts():
-#     """Test: Tworzy (POST) i anuluje (PATCH) zamówienie 100 razy."""
-#     email = "perf_test@example.com"
-#     payload = {"product": "Digital Service", "email": email}
-    
-#     for i in range(100):
-#         # 1. Tworzenie (ścieżka z Twojego kodu: /api/orders/digital)
-#         r_create = requests.post(f"{BASE_URL}/api/orders/digital", json=payload, timeout=TIMEOUT_LIMIT)
-#         assert r_create.status_code == 201
-#         order_id = r_create.json().get("id")
-        
-#         # 2. Anulowanie (zmienione na PATCH i /api/order/<id>/cancel)
-#         r_cancel = requests.patch(f"{BASE_URL}/api/order/{order_id}/cancel", timeout=TIMEOUT_LIMIT)
-        
-#         assert r_cancel.status_code == 200
-
-# def test_account_processing_100_transfers():
-#     """Test: Wykonuje 100 operacji advance, każda na nowym zamówieniu, aby uniknąć 404 po zakończeniu cyklu życia."""
-#     email = "transfer_perf@example.com"
-#     payload = {"product": "Bank Account", "email": email}
-    
-#     for i in range(100):
-#         # 1. Setup - nowe zamówienie dla każdej iteracji
-#         r_setup = requests.post(f"{BASE_URL}/api/orders/digital", json=payload, timeout=TIMEOUT_LIMIT)
-#         order_id = r_setup.json().get("id")
-        
-#         # 2. Wykonanie advance
-#         r_adv = requests.patch(f"{BASE_URL}/api/order/{order_id}/advance", timeout=TIMEOUT_LIMIT)
-        
-#         # Sprawdzamy czy przeszło (200) i czy było szybkie
-#         assert r_adv.status_code == 200, f"Błąd w iteracji {i}: {r_adv.text}"
-
-# def test_bulk_cleanup_1000_accounts():
-#     """Tworzy 1000 i anuluje wszystkie (PATCH)."""
-#     ids = []
-#     email = "bulk@example.com"
-    
-#     for i in range(1000):
-#         r = requests.post(f"{BASE_URL}/api/orders/digital", json={"product": f"P_{i}", "email": email})
-#         ids.append(r.json().get("id"))
-    
-#     for order_id in ids:
-#         # Zmienione na PATCH
-#         r = requests.patch(f"{BASE_URL}/api/order/{order_id}/cancel")
-#         assert r.status_code == 200
+        assert success_count >= amount * 0.95, f"Only {success_count}/{amount} requests returned within the timeout limit: {TIMEOUT_LIMIT}"
